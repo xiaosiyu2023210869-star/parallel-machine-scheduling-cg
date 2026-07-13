@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "parallel-machine-cg"
+version = "0.1.0"
+description = "Column generation and ML-assisted parameter selection for parallel-machine scheduling"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "gurobipy>=12,<14",
+  "matplotlib>=3.7",
+  "numpy>=1.24",
+  "openpyxl>=3.1",
+  "pandas>=2.0",
+  "scipy>=1.10",
+]
+
+[project.optional-dependencies]
+ml = [
+  "lightgbm>=4.0",
+  "scikit-learn>=1.3",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

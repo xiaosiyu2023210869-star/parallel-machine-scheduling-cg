@@ -1,0 +1,8 @@
+gurobipy>=12,<14
+matplotlib>=3.7
+numpy>=1.24
+openpyxl>=3.1
+pandas>=2.0
+scipy>=1.10
+lightgbm>=4.0
+scikit-learn>=1.3
