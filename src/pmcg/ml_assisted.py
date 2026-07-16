@@ -1725,6 +1725,7 @@ def column_generation_with_time_limit(p, w, m_val, k_fixed, time_limit):
         "objective": reported_obj,
         "incumbent_objective": incumbent_obj,
         "time_sec": elapsed,
+        "status": status,
         "cg_status": status,
         "timed_out": (
             elapsed >= time_limit - 1e-3
@@ -1769,6 +1770,28 @@ def column_generation_with_time_limit(p, w, m_val, k_fixed, time_limit):
         "final_int_sol_count": final_int_result.sol_count,
         "K": k_fixed,
     }
+
+
+def run_fixed_k_column_generation(
+    p,
+    w,
+    m_val,
+    k_fixed,
+    time_limit,
+    *,
+    tool_change_interval,
+    tool_change_time,
+):
+    """Run the canonical fixed-K CG with explicit scheduling parameters."""
+    global c, theta
+
+    previous_c, previous_theta = c, theta
+    c = tool_change_interval
+    theta = tool_change_time
+    try:
+        return column_generation_with_time_limit(p, w, m_val, k_fixed, time_limit)
+    finally:
+        c, theta = previous_c, previous_theta
 
 
 def extract_features(p, w, n, m_val):

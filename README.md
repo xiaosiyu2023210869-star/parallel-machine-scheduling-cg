@@ -4,10 +4,12 @@ Reproducibility code for parallel-machine weighted-completion-time scheduling wi
 
 ## Workflows
 
-1. **Four-method comparison**: Full MIP, two special-case strengthened MIPs, and hybrid column generation on small, medium, or large instances.
+1. **Four-method comparison**: Full MIP, two special-case strengthened MIPs, and the same fixed-`K` column-generation engine used by the ML workflow on small, medium, or large instances.
 2. **ML-assisted column generation**: generate `K`-sweep training records, train/select `K`, and compare fixed-`K` with ML-selected-`K` runs.
 
 The small benchmark retains the recorded FullMIP/Case11MIP/Case12MIP values from the source experiment and recomputes CG. Medium and large benchmarks solve all four methods.
+
+The fixed-`K` implementation in `src/pmcg/ml_assisted.py` is canonical. The comparison and training modules delegate to that implementation while supplying their workflow-specific machine, tool-change, `K`, and time-limit settings.
 
 ## Repository layout
 
@@ -65,8 +67,4 @@ python -m unittest discover -s tests -v
 
 ## Reproducibility notes
 
-The original random seed and default experiment parameters are preserved. See [`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md) for parameter mappings and [`docs/ORIGINAL_FILES.md`](docs/ORIGINAL_FILES.md) for the correspondence between the recovered HTML exports and this repository.
-
-## Publication checklist
-
-No open-source license has been selected. Choose and add a license before making the repository public. Do not commit a Gurobi license file, private solver logs, or generated `.pkl` models.
+The experiment random seed and default parameters are preserved. See [`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md) for parameter mappings and solver-reporting notes.
