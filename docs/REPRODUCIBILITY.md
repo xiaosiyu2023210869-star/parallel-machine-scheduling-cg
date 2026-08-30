@@ -53,4 +53,4 @@ Record the Gurobi version, license type, CPU, RAM, operating system, Python vers
 
 ## Data policy
 
-The repository includes the instance definitions and the training workbook used by the experiment scripts. Generated models, feedback workbooks, checkpoints, and plots belong in `outputs/` and are ignored by Git.
+The repository includes the instance definitions and the training workbook used by the experiment scripts. Final artifacts used in the manuscript are published under `results/`, including the comparison, theta/c, high-rho, machine-count, and ML workbooks, the online feedback records, and the trained K-selection model. Locally generated checkpoints and plots belong in `outputs/` and remain ignored by Git.

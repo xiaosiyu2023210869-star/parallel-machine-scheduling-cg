@@ -1,0 +1,15 @@
+{
+  "release": "paper-experiment-artifacts",
+  "manuscript": "Parallel-machine scheduling with periodic tool changes to minimize the total weighted completion time",
+  "artifacts": [
+    {"path":"comparison/comparison_23_instances.xlsx","source_sheet_ranges":{"comparison_with_wspt":"A1:AM116","wspt_summary":"A1:F5"},"paper_cases":23,"sha256":"7816129ba3dfe2aa5ac8924ece94fa0b32418f0ed748bae15f9cd2b93d32bd60"},
+    {"path":"theta/theta_c_sensitivity_111_cases.xlsx","source_sheet_ranges":{"comparison_with_wspt":"A1:BA223","theta_sensitivity":"A1:BA151","theta_c_interaction":"A1:BA73","instances":"A1:G26","case_summary":"A1:N112","merge_audit":"A1:K3","metadata":"A1:B12"},"paper_cases":111,"sha256":"14a53c4e276180d815d624d2079e3bd453764513c1daeaaddc8897cdcc5d581a"},
+    {"path":"theta/theta_high_rho_12_cases.xlsx","source_sheet_ranges":{"comparison_with_wspt":"A1:BA25","wspt_summary":"A1:K7","metadata":"A1:B21"},"paper_cases":12,"sha256":"4db59f48e5538e062fc1580f02466e0ae785c9859663ecf19b22771fe22bacab"},
+    {"path":"machine_count/machine_count_sensitivity_18_pairs.xlsx","source_sheet_ranges":{"raw_results":"A1:BW37","summary":"A1:T19"},"paper_pairs":18,"sha256":"4a7813432288cea7c2b50c01388d8fb7ad0ab957cafa3fd0fccb71eb2f3b29be"},
+    {"path":"machine_count/machine_count_sensitivity_analysis.json","paper_pairs":18,"nested_m3_cases":3,"sha256":"a95edcdfea526e4a08bf5f50a16daa9d558f09ff81771f7841674db25498dc61"},
+    {"path":"ml/ml_comparison_231_pairs.xlsx","source_sheet_ranges":{"Sheet1":"A1:CF463"},"paper_pairs":231,"sha256":"68b741d406cc77b7e96890ce08f0a2f3256f673efa314ef10a0efc67f1bd6d38"},
+    {"path":"ml/online_feedback_202_records.xlsx","source_sheet_ranges":{"feedback":"A1:AN203"},"records":202,"sha256":"7a416ccc951780cf4c6d2faa372c1c9ef68ce406cc7f8691d9bcc63cc10fd101"},
+    {"path":"ml/training_data_source_2890_records.xlsx","source_sheet_ranges":{"Sheet1":"A1:BK2891"},"records":2890,"sha256":"aa040323b31eeebfe044e5cf75eda8d6fb03361df55ec114050f50bd730c60d0"},
+    {"path":"ml/k_selection_model.pkl","sha256":"f5781af8b10d67e5667ad5d3a635cadbc5e8e2040132d75fd4d2a55747b2c517"}
+  ]
+}

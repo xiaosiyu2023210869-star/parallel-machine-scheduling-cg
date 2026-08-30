@@ -14,3 +14,7 @@ outputs/*
 *.lp
 *.mps
 gurobi.lic
+
+# Published experiment artifacts are intentionally versioned.
+!results/
+!results/**

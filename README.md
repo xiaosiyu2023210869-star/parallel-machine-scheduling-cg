@@ -22,7 +22,8 @@ src/pmcg/             Comparison, training, and ML-assisted engines
 scripts/              Command-line entry points
 tests/                Fast structural and data-integrity checks
 docs/                 Reproducibility and source-mapping notes
-outputs/              Generated checkpoints, workbooks, models, and figures
+outputs/              Local generated checkpoints, workbooks, models, and figures (ignored)
+results/              Published final experiment workbooks, feedback data, and model
 ```
 
 ## Requirements
@@ -109,7 +110,11 @@ python scripts/run_ml_assisted.py --training-data data/training_data.xlsx
 python scripts/run_ml_assisted.py --training-data data/training_data.xlsx --machines 6
 ```
 
-The ML experiment writes its model, online-feedback workbook, and timestamped comparison results under `outputs/ml-assisted/`. These generated artifacts are ignored by Git.
+The ML experiment writes its model, online-feedback workbook, and timestamped comparison results under `outputs/ml-assisted/`. The final artifacts used in the paper are published under [`results/`](results/README.md), with a machine-readable inventory in [`results/manifest.json`](results/manifest.json).
+
+## Published experiment artifacts
+
+The repository includes the final result workbooks and trained K-selection model used in the manuscript. The published package covers 23 main comparison instances, 111 primary/interaction theta-cases, 12 high-rho cases, 18 machine-count pairs, and 231 paired ML cases. These are archival result artifacts; rerunning the scripts is not required to inspect them.
 
 ## Quick validation
 
