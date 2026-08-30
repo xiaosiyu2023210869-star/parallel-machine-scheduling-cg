@@ -21,7 +21,8 @@ class SourceStructureTests(unittest.TestCase):
             self.assertEqual([], duplicates, f"{path.name}: {duplicates}")
 
     def test_no_user_specific_absolute_paths(self):
-        for path in sorted((ROOT / "src").rglob("*.py")):
+        paths = sorted((ROOT / "src").rglob("*.py")) + sorted((ROOT / "scripts").glob("*.py"))
+        for path in paths:
             text = path.read_text(encoding="utf-8")
             self.assertNotIn("/Users/mar/", text, path.name)
 

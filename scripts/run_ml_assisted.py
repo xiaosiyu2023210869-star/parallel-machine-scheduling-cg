@@ -19,14 +19,18 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, default=ROOT / "outputs" / "ml-assisted")
     parser.add_argument("--time-limit", type=float, default=1800.0)
     parser.add_argument("--baseline-k", type=int, default=30)
+    parser.add_argument("--machines", type=int, default=3)
     parser.add_argument("--disable-online-learning", action="store_true")
     args = parser.parse_args()
+    if args.machines != 3 and args.output_dir == ROOT / "outputs" / "ml-assisted":
+        args.output_dir = ROOT / "outputs" / f"ml-assisted-m{args.machines}"
     os.environ["PMCG_INSTANCES_FILE"] = str(args.instances)
     os.environ["PMCG_TRAINING_DATA"] = str(args.training_data)
     os.environ["PMCG_OUTPUT_DIR"] = str(args.output_dir)
     from pmcg import ml_assisted
     ml_assisted.TIME_LIMIT = args.time_limit
     ml_assisted.BASELINE_K = args.baseline_k
+    ml_assisted.m = args.machines
     ml_assisted.ONLINE_LEARNING_ENABLED = not args.disable_online_learning
     ml_assisted.main()
 

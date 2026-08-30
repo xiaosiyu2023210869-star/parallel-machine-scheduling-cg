@@ -17,11 +17,15 @@ def main() -> None:
     parser.add_argument("--instances", type=Path, default=ROOT / "data" / "instances_training.json")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "outputs" / "training")
     parser.add_argument("--time-limit", type=float, default=1800.0)
+    parser.add_argument("--machines", type=int, default=3)
     args = parser.parse_args()
+    if args.machines != 3 and args.output_dir == ROOT / "outputs" / "training":
+        args.output_dir = ROOT / "outputs" / f"training-m{args.machines}"
     os.environ["PMCG_INSTANCES_FILE"] = str(args.instances)
     os.environ["PMCG_OUTPUT_DIR"] = str(args.output_dir)
     from pmcg import training
     training.TIME_LIMIT = args.time_limit
+    training.m = args.machines
     training.main()
 
 

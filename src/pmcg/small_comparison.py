@@ -9,7 +9,7 @@ same fixed-K column-generation implementation as the ML workflow.
 
 Important parameter choices are kept from compare.html so the CG run is
 comparable with the recorded MIP results:
-    m = 3, c = 4, theta = 2.0, TIME_LIMIT = 600
+    m = 3, c = 4, theta = 2.0, TIME_LIMIT = 1800
 """
 
 import csv
@@ -19,6 +19,8 @@ import math
 import os
 from datetime import datetime
 from pathlib import Path
+
+from .parameters import effective_machine_count, machine_count_adjusted
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _RUNTIME_DIR = Path(os.environ.get("PMCG_RUNTIME_DIR", PROJECT_ROOT))
@@ -35,7 +37,7 @@ os.environ["LC_CTYPE"] = "C"
 m = 3
 c = 4
 theta = 2.0
-TIME_LIMIT = 600
+TIME_LIMIT = 1800
 
 
 # ================== Shared fixed-K column generation parameter ==================
@@ -95,14 +97,24 @@ def initial_results():
     results = {}
     for inst in INSTANCES:
         inst_id = inst["id"]
+        n = int(inst["n"])
+        m_eff = effective_machine_count(m, n)
+        recorded_methods = {}
+        if int(m) == 3 and m_eff == 3:
+            recorded_methods = {
+                method: {
+                    **recorded_result(values),
+                    "requested_m": int(m),
+                    "m": m_eff,
+                    "machine_count_adjusted": False,
+                }
+                for method, values in inst["recorded"].items()
+            }
         results[inst_id] = {
-            "n": inst["n"],
+            "n": n,
             "p": inst["p"],
             "w": inst["w"],
-            "methods": {
-                method: recorded_result(values)
-                for method, values in inst["recorded"].items()
-            },
+            "methods": recorded_methods,
         }
     return results
 
@@ -138,6 +150,15 @@ def parse_float(value):
     if value is None:
         return None
     return float(value)
+
+
+def row_matches_current_machine_count(row, n):
+    effective_m = effective_machine_count(m, n)
+    row_m = parse_int(row.get("m"))
+    row_requested_m = parse_int(row.get("requested_m"))
+    if row_m is None:
+        return effective_m == 3 and (row_requested_m is None or row_requested_m == 3)
+    return row_m == effective_m
 
 
 # ================== Canonical fixed-K column generation ==================
@@ -180,8 +201,17 @@ def load_checkpoint(filename=OUTPUT_CSV):
                 continue
             if inst_id not in results or method != "CG":
                 continue
+            if not row_matches_current_machine_count(row, int(results[inst_id]["n"])):
+                skipped += 1
+                continue
 
+            effective_m = effective_machine_count(m, int(results[inst_id]["n"]))
+            requested_m = parse_int(row.get("requested_m")) or effective_m
+            row_m = parse_int(row.get("m")) or effective_m
             result = {
+                "requested_m": requested_m,
+                "m": row_m,
+                "machine_count_adjusted": parse_bool(row.get("machine_count_adjusted")) or machine_count_adjusted(requested_m, row_m),
                 "objective": parse_float(row.get("objective")),
                 "time_sec": parse_float(row.get("time_sec")),
                 "status": parse_csv_value(row.get("status")),
@@ -232,6 +262,9 @@ def flatten_records(results):
             row = {
                 "instance_id": inst_id,
                 "n": n,
+                "requested_m": result.get("requested_m"),
+                "m": result.get("m"),
+                "machine_count_adjusted": result.get("machine_count_adjusted"),
                 "method": method,
                 "objective": result.get("objective"),
                 "time_sec": result.get("time_sec"),
@@ -270,6 +303,9 @@ def save_csv(results, filename=OUTPUT_CSV):
     fieldnames = [
         "instance_id",
         "n",
+        "requested_m",
+        "m",
+        "machine_count_adjusted",
         "method",
         "objective",
         "time_sec",
@@ -359,13 +395,20 @@ def main():
         n = inst["n"]
         p = inst["p"]
         w = inst["w"]
+        m_eff = effective_machine_count(m, n)
+        m_was_adjusted = machine_count_adjusted(m, m_eff)
 
-        print(f"\n{'=' * 20} n={n} {'=' * 20}")
+        print(f"\n{'=' * 20} n={n}, m={m_eff} {'=' * 20}")
+        if m_was_adjusted:
+            print(f"requested m={m} exceeds n={n}; using m={m_eff}.")
         print(f"p = {p}")
         print(f"w = {w}")
 
         for method in ("FullMIP", "Case11MIP", "Case12MIP"):
-            r = results[inst_id]["methods"][method]
+            r = results[inst_id]["methods"].get(method)
+            if r is None:
+                print(f"{method} recorded benchmark unavailable for requested m={m}.")
+                continue
             print(
                 f"{method} recorded from compare.html. "
                 f"obj={format_obj(r['objective'])}, time={r['time_sec']:.2f}s"
@@ -380,9 +423,12 @@ def main():
         else:
             print(f"Solving Column Generation with improved code, fixed K={K_FIXED} ...", flush=True)
             results[inst_id]["methods"]["CG"] = mark_checkpoint(
-                column_generation_with_time_limit(p, w, m, K_FIXED, TIME_LIMIT)
+                column_generation_with_time_limit(p, w, m_eff, K_FIXED, TIME_LIMIT)
             )
             r = results[inst_id]["methods"]["CG"]
+            r["requested_m"] = int(m)
+            r["m"] = m_eff
+            r["machine_count_adjusted"] = m_was_adjusted
             print(
                 f"  obj={format_obj(r['objective'])}, time={r['time_sec']:.2f}s, "
                 f"status={r['status']}, iters={r['iterations']}, cols={r['num_columns']}, "

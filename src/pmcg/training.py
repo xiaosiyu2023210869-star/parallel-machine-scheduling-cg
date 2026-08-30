@@ -15,6 +15,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+from .parameters import effective_machine_count, machine_count_adjusted
+
 try:
     from scipy.stats import skew
 except ImportError:
@@ -340,8 +343,12 @@ def main():
         n = inst["n"]
         p = inst["p"]
         w = inst["w"]
-        feat = extract_features(p, w, n, m)
-        print(f"\nInstance {inst_id}: n={n}")
+        m_eff = effective_machine_count(m, n)
+        m_was_adjusted = machine_count_adjusted(m, m_eff)
+        feat = extract_features(p, w, n, m_eff)
+        print(f"\nInstance {inst_id}: n={n}, m={m_eff}")
+        if m_was_adjusted:
+            print(f"  requested m={m} exceeds n={n}; using m={m_eff}.")
 
         for k_val in K_VALUES:
             key = (inst_id, k_val)
@@ -357,6 +364,9 @@ def main():
             record = {
                 "instance_id": inst_id,
                 "n": n,
+                "requested_m": int(m),
+                "m": m_eff,
+                "machine_count_adjusted": m_was_adjusted,
                 "K": k_val,
                 **result,
                 CHECKPOINT_VERSION_COLUMN: RESUME_RUN_ID,

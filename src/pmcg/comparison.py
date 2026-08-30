@@ -39,6 +39,8 @@ from gurobipy import GRB
 import matplotlib.pyplot as plt
 import numpy as np
 
+from .parameters import effective_machine_count, machine_count_adjusted
+
 
 # ================== Global parameters ==================
 m = 3
@@ -117,9 +119,9 @@ def configure_mip(model):
     model.setParam("Cuts", 2)
 
 
-def greedy_ordered_machine_sequences(p, w, order_key):
+def greedy_ordered_machine_sequences(p, w, m_val, order_key):
     sorted_jobs = sorted(range(len(p)), key=order_key)
-    machine_seq = [[] for _ in range(m)]
+    machine_seq = [[] for _ in range(m_val)]
 
     for job in sorted_jobs:
         best_machine = None
@@ -160,10 +162,11 @@ def apply_mip_start(X, F, C, p, w, machine_seq):
 
 
 # ================== Method 1: Full MIP ==================
-def solve_full_MIP(p, w):
+def solve_full_MIP(p, w, m_val=None):
     n = len(p)
+    m_val = effective_machine_count(m if m_val is None else m_val, n)
     J = range(n)
-    M_list = range(m)
+    M_list = range(m_val)
     K = range(1, n + 1)
     M_big = sum(p) + (n // c + 1) * theta
 
@@ -215,7 +218,7 @@ def solve_full_MIP(p, w):
         C,
         p,
         w,
-        greedy_ordered_machine_sequences(p, w, lambda j: (p[j] / w[j], j)),
+        greedy_ordered_machine_sequences(p, w, m_val, lambda j: (p[j] / w[j], j)),
     )
     model.setObjective(gp.quicksum(w[j] * C[j] for j in J), GRB.MINIMIZE)
     start = time.monotonic()
@@ -228,10 +231,11 @@ def solve_full_MIP(p, w):
 
 
 # ================== Method 2: Case 1.1 MIP ==================
-def solve_case1_1_MIP(p, w):
+def solve_case1_1_MIP(p, w, m_val=None):
     n = len(p)
+    m_val = effective_machine_count(m if m_val is None else m_val, n)
     J = range(n)
-    M_list = range(m)
+    M_list = range(m_val)
     K = range(1, n + 1)
     M_big = sum(p) + (n // c + 1) * theta
 
@@ -290,7 +294,7 @@ def solve_case1_1_MIP(p, w):
         C,
         p,
         w,
-        greedy_ordered_machine_sequences(p, w, lambda j: (-w[j], p[j], j)),
+        greedy_ordered_machine_sequences(p, w, m_val, lambda j: (-w[j], p[j], j)),
     )
     model.setObjective(gp.quicksum(w[j] * C[j] for j in J), GRB.MINIMIZE)
     start = time.monotonic()
@@ -303,10 +307,11 @@ def solve_case1_1_MIP(p, w):
 
 
 # ================== Method 3: Case 1.2 MIP ==================
-def solve_case1_2_MIP(p, w):
+def solve_case1_2_MIP(p, w, m_val=None):
     n = len(p)
+    m_val = effective_machine_count(m if m_val is None else m_val, n)
     J = range(n)
-    M_list = range(m)
+    M_list = range(m_val)
     K = range(1, n + 1)
     M_big = sum(p) + (n // c + 1) * theta
 
@@ -368,7 +373,7 @@ def solve_case1_2_MIP(p, w):
         C,
         p,
         w,
-        greedy_ordered_machine_sequences(p, w, lambda j: (p[j], -w[j], j)),
+        greedy_ordered_machine_sequences(p, w, m_val, lambda j: (p[j], -w[j], j)),
     )
     model.setObjective(gp.quicksum(w[j] * C[j] for j in J), GRB.MINIMIZE)
     start = time.monotonic()
@@ -433,6 +438,15 @@ def parse_float(value):
     return float(value)
 
 
+def row_matches_current_machine_count(row, n):
+    effective_m = effective_machine_count(m, n)
+    row_m = parse_int(row.get("m"))
+    row_requested_m = parse_int(row.get("requested_m"))
+    if row_m is None:
+        return effective_m == 3 and (row_requested_m is None or row_requested_m == 3)
+    return row_m == effective_m
+
+
 def is_finished_result(result):
     if not result:
         return False
@@ -470,8 +484,18 @@ def load_checkpoint(filename=OUTPUT_CSV):
             if inst_id is None or method not in METHODS:
                 skipped += 1
                 continue
+            inst = next((item for item in instances if item["id"] == inst_id), None)
+            if inst is None or not row_matches_current_machine_count(row, int(inst["n"])):
+                skipped += 1
+                continue
 
+            effective_m = effective_machine_count(m, int(inst["n"]))
+            requested_m = parse_int(row.get("requested_m")) or effective_m
+            row_m = parse_int(row.get("m")) or effective_m
             result = {
+                "requested_m": requested_m,
+                "m": row_m,
+                "machine_count_adjusted": parse_bool(row.get("machine_count_adjusted")) or machine_count_adjusted(requested_m, row_m),
                 "objective": parse_float(row.get("objective")),
                 "time_sec": parse_float(row.get("time_sec")),
                 "status": parse_csv_value(row.get("status")),
@@ -502,10 +526,6 @@ def load_checkpoint(filename=OUTPUT_CSV):
                 skipped += 1
                 continue
 
-            inst = next((item for item in instances if item["id"] == inst_id), None)
-            if inst is None:
-                skipped += 1
-                continue
             results.setdefault(
                 inst_id,
                 {"n": inst["n"], "p": inst["p"], "w": inst["w"], "methods": {}},
@@ -533,6 +553,9 @@ def flatten_records(results):
             row = {
                 "instance_id": inst_id,
                 "n": n,
+                "requested_m": result.get("requested_m"),
+                "m": result.get("m"),
+                "machine_count_adjusted": result.get("machine_count_adjusted"),
                 "method": method,
                 "objective": result.get("objective"),
                 "time_sec": result.get("time_sec"),
@@ -571,6 +594,9 @@ def save_csv(results, filename=OUTPUT_CSV):
     fieldnames = [
         "instance_id",
         "n",
+        "requested_m",
+        "m",
+        "machine_count_adjusted",
         "method",
         "objective",
         "time_sec",
@@ -654,9 +680,13 @@ def main():
         n = inst["n"]
         p = inst["p"]
         w = inst["w"]
+        m_eff = effective_machine_count(m, n)
+        m_was_adjusted = machine_count_adjusted(m, m_eff)
         results.setdefault(inst_id, {"n": n, "p": p, "w": w, "methods": {}})
 
-        print(f"\n{'=' * 20} instance={inst_id}, n={n} {'=' * 20}")
+        print(f"\n{'=' * 20} instance={inst_id}, n={n}, m={m_eff} {'=' * 20}")
+        if m_was_adjusted:
+            print(f"requested m={m} exceeds n={n}; using m={m_eff}.")
         print(f"p = {p}")
         print(f"w = {w}")
 
@@ -665,8 +695,11 @@ def main():
             print(f"Full MIP already finished, skip. obj={format_obj(r['objective'])}, status={r['status']}")
         else:
             print("Solving Full MIP ...", flush=True)
-            results[inst_id]["methods"]["FullMIP"] = mark_checkpoint(solve_full_MIP(p, w))
+            results[inst_id]["methods"]["FullMIP"] = mark_checkpoint(solve_full_MIP(p, w, m_eff))
             r = results[inst_id]["methods"]["FullMIP"]
+            r["requested_m"] = int(m)
+            r["m"] = m_eff
+            r["machine_count_adjusted"] = m_was_adjusted
             print(f"  obj={format_obj(r['objective'])}, time={r['time_sec']:.2f}s, status={r['status']}")
             save_csv(results)
             gc.collect()
@@ -676,8 +709,11 @@ def main():
             print(f"Case1.1 MIP already finished, skip. obj={format_obj(r['objective'])}, status={r['status']}")
         else:
             print("Solving Case1.1 MIP ...", flush=True)
-            results[inst_id]["methods"]["Case11MIP"] = mark_checkpoint(solve_case1_1_MIP(p, w))
+            results[inst_id]["methods"]["Case11MIP"] = mark_checkpoint(solve_case1_1_MIP(p, w, m_eff))
             r = results[inst_id]["methods"]["Case11MIP"]
+            r["requested_m"] = int(m)
+            r["m"] = m_eff
+            r["machine_count_adjusted"] = m_was_adjusted
             print(f"  obj={format_obj(r['objective'])}, time={r['time_sec']:.2f}s, status={r['status']}")
             save_csv(results)
             gc.collect()
@@ -687,8 +723,11 @@ def main():
             print(f"Case1.2 MIP already finished, skip. obj={format_obj(r['objective'])}, status={r['status']}")
         else:
             print("Solving Case1.2 MIP ...", flush=True)
-            results[inst_id]["methods"]["Case12MIP"] = mark_checkpoint(solve_case1_2_MIP(p, w))
+            results[inst_id]["methods"]["Case12MIP"] = mark_checkpoint(solve_case1_2_MIP(p, w, m_eff))
             r = results[inst_id]["methods"]["Case12MIP"]
+            r["requested_m"] = int(m)
+            r["m"] = m_eff
+            r["machine_count_adjusted"] = m_was_adjusted
             print(f"  obj={format_obj(r['objective'])}, time={r['time_sec']:.2f}s, status={r['status']}")
             save_csv(results)
             gc.collect()
@@ -702,9 +741,12 @@ def main():
         else:
             print(f"Solving Column Generation, fixed K={K_FIXED} ...", flush=True)
             results[inst_id]["methods"]["CG"] = mark_checkpoint(
-                column_generation_with_time_limit(p, w, m, K_FIXED, TIME_LIMIT)
+                column_generation_with_time_limit(p, w, m_eff, K_FIXED, TIME_LIMIT)
             )
             r = results[inst_id]["methods"]["CG"]
+            r["requested_m"] = int(m)
+            r["m"] = m_eff
+            r["machine_count_adjusted"] = m_was_adjusted
             print(
                 f"  obj={format_obj(r['objective'])}, time={r['time_sec']:.2f}s, "
                 f"status={r['status']}, iters={r['iterations']}, cols={r['num_columns']}, "

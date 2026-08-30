@@ -38,6 +38,8 @@ except ImportError:
 import gurobipy as gp
 from gurobipy import GRB
 
+from .parameters import effective_machine_count, machine_count_adjusted
+
 
 # -------------------- Parameters --------------------
 m = 3
@@ -253,9 +255,10 @@ def compute_column(seq, p, w):
 
 
 
-def greedy_ordered_machine_sequences(p, w, order_key):
+def greedy_ordered_machine_sequences(p, w, order_key, m_val=None):
     sorted_jobs = sorted(range(len(p)), key=order_key)
-    machine_seq = [[] for _ in range(m)]
+    m_eff = effective_machine_count(m if m_val is None else m_val, len(p))
+    machine_seq = [[] for _ in range(m_eff)]
 
     for job in sorted_jobs:
         best_machine = None
@@ -761,7 +764,9 @@ def build_initial_column_pool(p, w, m_val):
         )
 
     if not best_keys:
-        fallback = greedy_ordered_machine_sequences(p, w, lambda j: (p[j] / w[j], j))
+        fallback = greedy_ordered_machine_sequences(
+            p, w, lambda j: (p[j] / w[j], j), m_val
+        )
         remember(fallback, "initial_fallback")
 
     return columns, best_obj, best_keys, schedule_count
@@ -817,7 +822,9 @@ def build_training_initial_column_pool(p, w, m_val):
         remember(greedy_insert_schedule(order, p, w, m_val, improve_passes=0), f"training_random_{r}")
 
     if not best_keys:
-        fallback = greedy_ordered_machine_sequences(p, w, lambda j: (p[j] / max(w[j], 1e-9), j))
+        fallback = greedy_ordered_machine_sequences(
+            p, w, lambda j: (p[j] / max(w[j], 1e-9), j), m_val
+        )
         remember(fallback, "training_fallback")
 
     return columns, best_obj, best_keys, schedule_count
@@ -1534,6 +1541,8 @@ def refresh_final_rmp(columns, n, m_val, deadline):
 
 def column_generation_with_time_limit(p, w, m_val, k_fixed, time_limit):
     n = len(p)
+    requested_m = int(m_val)
+    m_val = effective_machine_count(requested_m, n)
     jobs = list(range(n))
     start = time.monotonic()
     deadline = start + time_limit
@@ -1722,6 +1731,9 @@ def column_generation_with_time_limit(p, w, m_val, k_fixed, time_limit):
         reported_obj = last_rmp_obj
         reported_source = "last_rmp_obj"
     return {
+        "requested_m": requested_m,
+        "m": m_val,
+        "machine_count_adjusted": machine_count_adjusted(requested_m, m_val),
         "objective": reported_obj,
         "incumbent_objective": incumbent_obj,
         "time_sec": elapsed,
@@ -2699,10 +2711,12 @@ def main():
         inst_id = int(inst["id"])
         p = inst["p"]
         w = inst["w"]
-        feat = extract_features(p, w, len(p), m)
+        m_eff = effective_machine_count(m, len(p))
+        m_was_adjusted = machine_count_adjusted(m, m_eff)
+        feat = extract_features(p, w, len(p), m_eff)
         exact_objective, exact_status = (None, "SKIPPED_N_TOO_LARGE")
         if len(p) <= ML_EXACT_SMALL_N_THRESHOLD:
-            exact_objective, exact_status = solve_small_exact_dp(p, w, m)
+            exact_objective, exact_status = solve_small_exact_dp(p, w, m_eff)
         predicted_k, neighbors, selected_model_name = model.predict(feat)
         predicted_k = int(min(K_VALUES, key=lambda value: abs(value - predicted_k)))
         methods = [
@@ -2728,8 +2742,10 @@ def main():
             exact_msg = f", exact_dp={exact_objective:.2f}({exact_status})"
         print(
             f"\nInstance {inst_id}: recorded_n={inst['n']}, true_n={len(p)}, "
-            f"ML predicted K={predicted_k} via {selected_model_name}{exact_msg}"
+            f"m={m_eff}, ML predicted K={predicted_k} via {selected_model_name}{exact_msg}"
         )
+        if m_was_adjusted:
+            print(f"  requested m={m} exceeds n={len(p)}; using m={m_eff}.")
 
         for method, k_val, model_info in methods:
             key = (inst_id, method)

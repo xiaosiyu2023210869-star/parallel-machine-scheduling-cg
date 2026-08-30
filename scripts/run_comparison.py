@@ -25,13 +25,16 @@ def main() -> None:
     args = parser.parse_args()
 
     defaults = {
-        "small": (600.0, 4, 2.0),
+        "small": (1800.0, 4, 2.0),
         "medium": (1800.0, 2, 4.0),
         "large": (1800.0, 2, 4.0),
     }
     default_time, default_c, default_theta = defaults[args.scale]
     instances_file = ROOT / "data" / f"instances_{args.scale}.json"
-    output_dir = args.output_dir or ROOT / "outputs" / f"comparison-{args.scale}"
+    default_output_name = f"comparison-{args.scale}"
+    if args.machines != 3:
+        default_output_name += f"-m{args.machines}"
+    output_dir = args.output_dir or ROOT / "outputs" / default_output_name
     os.environ["PMCG_INSTANCES_FILE"] = str(instances_file)
     os.environ["PMCG_OUTPUT_DIR"] = str(output_dir)
     os.environ["PMCG_RUNTIME_DIR"] = str(ROOT)
